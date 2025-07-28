@@ -1,0 +1,161 @@
+<div class="metafield-filter-system page-width">
+  <!-- Filter Buttons -->
+  <div class="filter-controls">
+    {% assign materials = "cotton,linen,silk,wool" | split: ',' %}
+    <button class="filter-btn active" data-filter="all">Show All ({{ collection.products_count }})</button>
+    {% for material in materials %}
+      <button class="filter-btn" data-filter="{{ material }}">
+        {{ material | capitalize }} (<span id="count-{{ material }}">0</span>)
+      </button>
+    {% endfor %}
+  </div>
+
+  <!-- Product Container -->
+  <div class="product-grid custom-product-grid" id="product-container">
+    <ul id="product-list"
+      class="grid product-grid grid--{{ section.settings.columns_mobile }}-col-tablet-down grid--{{ section.settings.columns_desktop }}-col-desktop">
+      {% assign skip_card_product_styles = false %}
+      {% for product in collection.products %}
+        {% assign lazy_load = false %}
+        {% if forloop.index > 2 %}
+          {% assign lazy_load = true %}
+        {% endif %}
+        <li class="grid__item"
+            data-metafield="{{ product.metafields.custom.metafilter | downcase | default: '' }}">
+          {% render 'card-product',
+            card_product: product,
+            media_aspect_ratio: section.settings.image_ratio,
+            image_shape: section.settings.image_shape,
+            show_secondary_image: section.settings.show_secondary_image,
+            show_vendor: section.settings.show_vendor,
+            show_rating: section.settings.show_rating,
+            lazy_load: lazy_load,
+            skip_styles: skip_card_product_styles,
+            quick_add: section.settings.quick_add,
+            section_id: section.id %}
+        </li>
+        {% assign skip_card_product_styles = true %}
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+<style>
+  .filter-btn.active {
+    background: #000;
+    color: #fff;
+  }
+  .metafield-filter-system {
+    display: flex;
+}
+  .filter-controls{
+    width:10%;
+  }
+  .custom-product-grid{
+    width:90%;
+  }
+  .loading-spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: #000;
+    animation: spin 1s linear infinite;
+    vertical-align: middle;
+    margin-left: 5px;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const productContainer = document.getElementById('product-container');
+  const filterButtons = document.querySelectorAll('.filter-btn');
+  const allFilters = ['cotton', 'linen', 'silk', 'wool'];
+  const filterData = { all: [], cotton: [], linen: [], silk: [], wool: [] };
+  let loaded = false;
+
+  // Store original HTML
+  const originalHTML = productContainer.innerHTML;
+
+  // Handle button click
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', async function () {
+      filterButtons.forEach(b => b.classList.remove('active'));
+      this.classList.add('active');
+
+      const filter = this.dataset.filter;
+
+      if (!loaded) {
+        await loadAllPages();
+        loaded = true;
+      }
+
+      if (filter === 'all') {
+        productContainer.innerHTML = originalHTML;
+      } else {
+        productContainer.innerHTML = `
+          <ul class="grid product-grid grid--1-col-tablet-down grid--3-col-desktop">
+            ${filterData[filter].join('')}
+          </ul>
+        `;
+      }
+    });
+  });
+
+  // Load all paginated products via AJAX
+  async function loadAllPages() {
+    allFilters.forEach(mat => {
+      const el = document.getElementById(`count-${mat}`);
+      if (el) el.innerHTML = 'Loading <span class="loading-spinner"></span>';
+    });
+
+    let totalPages = 50;
+    try {
+      const res = await fetch(`{{ collection.url }}?page=1&view=ajax`);
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const pages = [...doc.querySelectorAll('.pagination a')];
+      pages.forEach(link => {
+        const num = parseInt(link.textContent);
+        if (!isNaN(num) && num > totalPages) totalPages = num;
+      });
+    } catch (err) {
+      console.warn("Couldn’t detect total pages, assuming 20");
+      totalPages = 20;
+    }
+
+    const requests = Array.from({ length: totalPages }, (_, i) => {
+      return fetch(`{{ collection.url }}?page=${i + 1}&view=ajax`)
+        .then(res => res.ok ? res.text() : '')
+        .then(html => {
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+          const items = doc.querySelectorAll('li.grid__item');
+          items.forEach(item => {
+            const meta = (item.dataset.metafield || '').toLowerCase();
+            const outer = item.outerHTML;
+            filterData.all.push(outer);
+            allFilters.forEach(f => {
+              if (meta.includes(f)) {
+                filterData[f].push(outer);
+              }
+            });
+          });
+        });
+    });
+
+    await Promise.all(requests);
+
+    // Update counts
+    allFilters.forEach(f => {
+      const el = document.getElementById(`count-${f}`);
+      if (el) el.textContent = filterData[f].length;
+    });
+  }
+});
+</script>

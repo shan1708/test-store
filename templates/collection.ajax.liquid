@@ -1,0 +1,22 @@
+{% paginate collection.products by 50 %}
+  <div class="product-grid">
+    <ul class="grid product-grid">
+      {% for product in collection.products %}
+        <li class="grid__item"
+            data-metafield="{{ product.metafields.custom.metafilter | downcase | default: '' }}">
+          {% render 'card-product',
+            card_product: product,
+            media_aspect_ratio: 'square',
+            image_shape: 'default',
+            show_secondary_image: true,
+            show_vendor: false,
+            show_rating: false,
+            lazy_load: false,
+            skip_styles: false,
+            quick_add: 'none',
+            section_id: 'ajax-load' %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endpaginate %}

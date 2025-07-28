@@ -1,0 +1,27 @@
+
+  <span class="cart-count">0</span>
+
+
+<style>
+  
+  .cart-count {   
+    color: black;
+  }
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+$(document).ready(function() {
+  updateCartBubble(); 
+  $(document).on('ajaxCart.afterCartLoad cart:updated', updateCartBubble);
+  setInterval(updateCartBubble, 2000);
+});
+
+function updateCartBubble() {
+  $.getJSON('/cart.js', function(cart) {
+    const $bubble = $('.cart-count');
+    $bubble.text(cart.item_count);
+    cart.item_count > 0 ? $bubble.show() : $bubble.hide();
+  });
+}
+</script>
