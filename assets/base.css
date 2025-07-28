@@ -1,3 +1,10 @@
+.header__icon .icon {
+  height: 2rem;
+  width: 2rem;
+  fill: none;
+  vertical-align: middle;
+  display: none;
+}
 :root {
   --alpha-button-background: 1;
   --alpha-button-border: 1;
